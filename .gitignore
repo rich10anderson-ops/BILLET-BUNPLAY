@@ -36,6 +36,7 @@ Thumbs.db
 .cache/
 .vite/
 .parcel-cache/
+.vercel/
 
 # Coverage
 coverage/
