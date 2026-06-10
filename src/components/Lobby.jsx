@@ -49,8 +49,8 @@ export default function Lobby() {
         addAlert('Por favor completa todos los campos.', 'warning')
         return
       }
-      if (password.length < 6) {
-        addAlert('La contraseña debe tener al menos 6 caracteres.', 'warning')
+      if (password.length < 8) {
+        addAlert('La contraseña debe tener al menos 8 caracteres.', 'warning')
         return
       }
       const success = registerAccount(name, email, password, addAlert)
@@ -207,9 +207,47 @@ export default function Lobby() {
             </svg>
             Google Identity
           </button>
-          <button className="btn btn-ghost wide" onClick={handleDemo}>
-            Acceso en modo Demo
-          </button>
+          {activeTab === 'login' ? (
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+              <span className="small" style={{ color: 'var(--text-secondary)' }}>¿Aún no tienes cuenta? </span>
+              <button
+                type="button"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  padding: '0',
+                  textDecoration: 'underline'
+                }}
+                onClick={() => setActiveTab('register')}
+              >
+                Regístrate aquí
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+              <span className="small" style={{ color: 'var(--text-secondary)' }}>¿Ya eres parte de la familia? </span>
+              <button
+                type="button"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  padding: '0',
+                  textDecoration: 'underline'
+                }}
+                onClick={() => setActiveTab('login')}
+              >
+                Inicia sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>

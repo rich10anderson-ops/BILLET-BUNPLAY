@@ -10,14 +10,10 @@ const PACKAGES = [
 ]
 
 export default function InvestmentsPanel() {
-  const { balances, simulateStaking } = useCurrency()
+  const { balances, investments, simulateStaking } = useCurrency()
   const { addAlert } = useAlert()
   const [selectedPkgId, setSelectedPkgId] = useState('usd_flex')
   const [amount, setAmount] = useState('')
-  const [activeInvestments, setActiveInvestments] = useState([
-    { id: 1, name: 'Ahorro Flexible USD', symbol: 'USD', amount: 500, apy: 5.2, date: '08/06/2026' },
-    { id: 2, name: 'Staking Ethereum', symbol: 'ETH', amount: 0.2, apy: 4.1, date: '09/06/2026' }
-  ])
 
   const selectedPkg = useMemo(() => {
     return PACKAGES.find(p => p.id === selectedPkgId)
@@ -31,19 +27,8 @@ export default function InvestmentsPanel() {
       return
     }
 
-    const success = simulateStaking(selectedPkg.symbol, num, addAlert)
+    const success = simulateStaking(selectedPkg.symbol, num, selectedPkg.name, selectedPkg.apy, addAlert)
     if (success) {
-      setActiveInvestments((prev) => [
-        {
-          id: Date.now(),
-          name: selectedPkg.name,
-          symbol: selectedPkg.symbol,
-          amount: num,
-          apy: selectedPkg.apy,
-          date: new Date().toLocaleDateString('es-CO')
-        },
-        ...prev
-      ])
       setAmount('')
     }
   }
@@ -138,7 +123,7 @@ export default function InvestmentsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {activeInvestments.map((inv) => (
+                {investments.map((inv) => (
                   <tr key={inv.id}>
                     <td>
                       <div>{inv.name}</div>

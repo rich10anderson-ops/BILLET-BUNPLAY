@@ -31,7 +31,7 @@ describe('Nexopay - Lobby y Autenticación Local', () => {
     
     // Check interactive buttons
     expect(screen.getByRole('button', { name: /Ingresar a mi cuenta/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Acceso en modo Demo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Regístrate aquí/i })).toBeInTheDocument()
   })
 
   test('Cambia entre pestañas de Ingresar y Registrarse', async () => {

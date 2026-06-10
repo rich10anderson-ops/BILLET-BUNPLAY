@@ -5,36 +5,22 @@ import { useAuth } from '../providers/AuthProvider'
 import { uploadWithPresignedUrl } from '../services/api'
 
 export default function DashboardPanel({ viewMode = 'all' }) {
-  const { balances, currencies, simulateDeposit } = useCurrency()
+  const { balances, currencies, transactions, simulateDeposit } = useCurrency()
   const { addAlert } = useAlert()
   const { user } = useAuth()
   const [depAmount, setDepAmount] = useState('')
   const [depSymbol, setDepSymbol] = useState('USD')
   const [documentStatus, setDocumentStatus] = useState('Pendiente')
   const [isUploading, setIsUploading] = useState(false)
-  const [depositLogs, setDepositLogs] = useState([
-    { id: 1, date: '09/06/2026 10:20', symbol: 'USD', amount: 2500 },
-    { id: 2, date: '09/06/2026 10:25', symbol: 'EUR', amount: 500 },
-    { id: 3, date: '09/06/2026 10:30', symbol: 'BTC', amount: 0.05 },
-    { id: 4, date: '08/06/2026 14:15', symbol: 'ETH', amount: 1.2 },
-    { id: 5, date: '08/06/2026 09:10', symbol: 'SOL', amount: 15 },
-    { id: 6, date: '07/06/2026 16:45', symbol: 'GBP', amount: 350 },
-    { id: 7, date: '07/06/2026 11:20', symbol: 'USD', amount: 1000 },
-    { id: 8, date: '06/06/2026 18:30', symbol: 'EUR', amount: 750 },
-    { id: 9, date: '06/06/2026 10:05', symbol: 'BTC', amount: 0.015 },
-    { id: 10, date: '05/06/2026 15:50', symbol: 'ARS', amount: 50000 },
-    { id: 11, date: '05/06/2026 09:30', symbol: 'USD', amount: 1500 },
-    { id: 12, date: '04/06/2026 12:40', symbol: 'SOL', amount: 8 }
-  ])
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 5
 
-  const totalLogs = depositLogs.length
+  const totalLogs = transactions.length
   const totalPages = Math.max(1, Math.ceil(totalLogs / pageSize))
   const paginatedLogs = useMemo(() => {
     const start = (currentPage - 1) * pageSize
-    return depositLogs.slice(start, start + pageSize)
-  }, [depositLogs, currentPage])
+    return transactions.slice(start, start + pageSize)
+  }, [transactions, currentPage])
 
   const assetDetails = useMemo(() => {
     let total = 0
@@ -55,22 +41,13 @@ export default function DashboardPanel({ viewMode = 'all' }) {
     event.preventDefault()
     const amount = Number(depAmount)
     if (!depAmount || amount <= 0) {
-      addAlert('Ingresa un monto valido mayor a cero.', 'warning')
+      addAlert('Ingresa un monto válido mayor a cero.', 'warning')
       return
     }
 
     const success = simulateDeposit(depSymbol, amount, addAlert)
     if (!success) return
 
-    setDepositLogs((prev) => [
-      {
-        id: Date.now(),
-        date: new Date().toLocaleString('es-CO', { hour12: false }).replace(',', ''),
-        symbol: depSymbol.toUpperCase(),
-        amount,
-      },
-      ...prev,
-    ])
     setDepAmount('')
     setCurrentPage(1)
   }
@@ -114,18 +91,39 @@ export default function DashboardPanel({ viewMode = 'all' }) {
                   <th>Fecha</th>
                   <th>Moneda</th>
                   <th>Monto</th>
-                  <th>Estado</th>
+                  <th>Detalle / Tipo</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{log.date}</td>
-                    <td>{log.symbol}</td>
-                    <td>+{log.amount.toLocaleString(undefined, { minimumFractionDigits: log.amount < 1 ? 4 : 2 })}</td>
-                    <td style={{ color: 'var(--accent-success)', fontWeight: 'bold' }}>Completado</td>
-                  </tr>
-                ))}
+                {paginatedLogs.map((log) => {
+                  const isPositive = log.amount > 0;
+                  const absAmount = Math.abs(log.amount);
+                  const formattedAmt = isPositive 
+                    ? `+${absAmount.toLocaleString(undefined, { minimumFractionDigits: absAmount < 1 ? 4 : 2 })}` 
+                    : `-${absAmount.toLocaleString(undefined, { minimumFractionDigits: absAmount < 1 ? 4 : 2 })}`;
+                  const typeLabel = log.type === 'buy' ? 'Compra' : 
+                                    log.type === 'sell' ? 'Venta' : 
+                                    log.type === 'convert' ? 'Conversión' : 
+                                    log.type === 'stake' ? 'Staking' : 'Depósito';
+                  
+                  return (
+                    <tr key={log.id}>
+                      <td>{log.date}</td>
+                      <td>
+                        <span className="symbol-tag" style={{ fontSize: '10.5px', padding: '2px 6px', display: 'inline-block' }}>
+                          {log.symbol}
+                        </span>
+                      </td>
+                      <td style={{ color: isPositive ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 'bold' }}>
+                        {formattedAmt}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{typeLabel}</div>
+                        <div className="small" style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>{log.desc}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -181,7 +179,7 @@ export default function DashboardPanel({ viewMode = 'all' }) {
         </div>
         <div className="dashboard-stat-card">
           <div className="stat-label">Ingresos recientes</div>
-          <div className="stat-value">{depositLogs.length}</div>
+          <div className="stat-value">{transactions.length}</div>
           <div className="small">Operaciones registradas</div>
         </div>
         <div className="dashboard-stat-card">
@@ -252,18 +250,39 @@ export default function DashboardPanel({ viewMode = 'all' }) {
                   <th>Fecha</th>
                   <th>Moneda</th>
                   <th>Monto</th>
-                  <th>Estado</th>
+                  <th>Detalle / Tipo</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{log.date}</td>
-                    <td>{log.symbol}</td>
-                    <td>+{log.amount.toLocaleString(undefined, { minimumFractionDigits: log.amount < 1 ? 4 : 2 })}</td>
-                    <td style={{ color: 'var(--accent-success)', fontWeight: 'bold' }}>Completado</td>
-                  </tr>
-                ))}
+                {paginatedLogs.map((log) => {
+                  const isPositive = log.amount > 0;
+                  const absAmount = Math.abs(log.amount);
+                  const formattedAmt = isPositive 
+                    ? `+${absAmount.toLocaleString(undefined, { minimumFractionDigits: absAmount < 1 ? 4 : 2 })}` 
+                    : `-${absAmount.toLocaleString(undefined, { minimumFractionDigits: absAmount < 1 ? 4 : 2 })}`;
+                  const typeLabel = log.type === 'buy' ? 'Compra' : 
+                                    log.type === 'sell' ? 'Venta' : 
+                                    log.type === 'convert' ? 'Conversión' : 
+                                    log.type === 'stake' ? 'Staking' : 'Depósito';
+                  
+                  return (
+                    <tr key={log.id}>
+                      <td>{log.date}</td>
+                      <td>
+                        <span className="symbol-tag" style={{ fontSize: '10.5px', padding: '2px 6px', display: 'inline-block' }}>
+                          {log.symbol}
+                        </span>
+                      </td>
+                      <td style={{ color: isPositive ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 'bold' }}>
+                        {formattedAmt}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{typeLabel}</div>
+                        <div className="small" style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>{log.desc}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

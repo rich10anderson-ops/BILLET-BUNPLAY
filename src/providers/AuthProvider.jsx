@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 
 const AuthContext = createContext()
 const STORAGE_KEY = 'nexopay:user'
+const TOKEN_KEY = 'nexopay:token'
+const APP_API_BASE = import.meta.env.VITE_APP_API_BASE || 'https://nexopay-api-production.up.railway.app/api'
 
 function decodeJwtPayload(token) {
   try {
@@ -47,6 +50,33 @@ export function AuthProvider({children}){
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
   }, [user])
+
+  // Restore session on mount from JWT
+  useEffect(() => {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return
+
+    axios.get(`${APP_API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then((res) => {
+      const userData = res.data
+      setUser({
+        id: userData.id,
+        name: userData.full_name,
+        email: userData.email,
+        provider: 'local',
+        verified: true,
+        signedAt: new Date().toISOString(),
+      })
+    })
+    .catch((err) => {
+      console.warn('Sesión de token expirada o inválida.', err.message)
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(STORAGE_KEY)
+      setUser(null)
+    })
+  }, [])
 
   useEffect(() => {
     if (!googleClientId) return
@@ -101,58 +131,59 @@ export function AuthProvider({children}){
     window.google.accounts.id.prompt()
   }
 
-  function loginWithCredentials(email, password, toastCallback) {
+  async function loginWithCredentials(email, password, toastCallback) {
     try {
-      const stored = localStorage.getItem('nexopay:accounts')
-      const accounts = stored ? JSON.parse(stored) : []
-      const found = accounts.find((acc) => acc.email.toLowerCase() === email.toLowerCase())
-      
-      if (!found || found.password !== password) {
-        toastCallback?.('Credenciales de acceso incorrectas.', 'error')
-        return false
-      }
-      
+      const res = await axios.post(`${APP_API_BASE}/auth/login`, {
+        email,
+        password
+      })
+
+      const { token, user: userData } = res.data
+      localStorage.setItem(TOKEN_KEY, token)
+
       setUser({
-        id: found.id,
-        name: found.name,
-        email: found.email,
+        id: userData.id,
+        name: userData.full_name,
+        email: userData.email,
         provider: 'local',
         verified: true,
         signedAt: new Date().toISOString(),
       })
-      toastCallback?.(`¡Bienvenido de nuevo, ${found.name}!`, 'success')
+
+      toastCallback?.(`¡Bienvenido de nuevo, ${userData.full_name}!`, 'success')
       return true
     } catch (e) {
-      toastCallback?.('Ocurrió un error al iniciar sesión.', 'error')
+      const errMsg = e.response?.data?.message || 'Credenciales de acceso incorrectas.'
+      toastCallback?.(errMsg, 'error')
       return false
     }
   }
 
-  function registerAccount(name, email, password, toastCallback) {
+  async function registerAccount(name, email, password, toastCallback) {
     try {
-      const stored = localStorage.getItem('nexopay:accounts')
-      const accounts = stored ? JSON.parse(stored) : []
-      const exists = accounts.some((acc) => acc.email.toLowerCase() === email.toLowerCase())
-      
-      if (exists) {
-        toastCallback?.('Ya existe una cuenta con este correo electrónico.', 'warning')
-        return false
-      }
-      
-      const newAcc = {
-        id: Math.random().toString(36).substring(2, 9),
-        name,
+      const res = await axios.post(`${APP_API_BASE}/auth/register`, {
+        full_name: name,
         email,
-        password,
-        createdAt: new Date().toISOString(),
-      }
-      
-      accounts.push(newAcc)
-      localStorage.setItem('nexopay:accounts', JSON.stringify(accounts))
-      toastCallback?.('¡Cuenta creada correctamente! Ya puedes iniciar sesión.', 'success')
+        password
+      })
+
+      const { token, user: userData } = res.data
+      localStorage.setItem(TOKEN_KEY, token)
+
+      setUser({
+        id: userData.id,
+        name: userData.full_name,
+        email: userData.email,
+        provider: 'local',
+        verified: true,
+        signedAt: new Date().toISOString(),
+      })
+
+      toastCallback?.('¡Cuenta creada correctamente! Bienvenido a la familia.', 'success')
       return true
     } catch (e) {
-      toastCallback?.('Ocurrió un error al registrar la cuenta.', 'error')
+      const errMsg = e.response?.data?.message || 'Ocurrió un error al registrar la cuenta.'
+      toastCallback?.(errMsg, 'error')
       return false
     }
   }
@@ -173,6 +204,8 @@ export function AuthProvider({children}){
 
   function logout(){
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect()
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(STORAGE_KEY)
     setUser(null)
   }
 
