@@ -7,11 +7,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Proxea CoinGecko en dev para evitar CORS (sin necesitar el servidor Express)
       '/coingecko': {
-        target: 'http://localhost:4000/api',
+        target: 'https://api.coingecko.com/api/v3',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/coingecko/, '/coingecko')
-      }
-    }
-  }
+        rewrite: (path) => path.replace(/^\/coingecko/, ''),
+      },
+    },
+  },
 })
