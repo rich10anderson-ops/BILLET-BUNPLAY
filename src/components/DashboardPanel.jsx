@@ -4,7 +4,7 @@ import { useAlert } from '../providers/AlertProvider'
 import { useAuth } from '../providers/AuthProvider'
 import { uploadWithPresignedUrl } from '../services/api'
 
-export default function DashboardPanel() {
+export default function DashboardPanel({ viewMode = 'all' }) {
   const { balances, currencies, simulateDeposit } = useCurrency()
   const { addAlert } = useAlert()
   const { user } = useAuth()
@@ -16,7 +16,25 @@ export default function DashboardPanel() {
     { id: 1, date: '09/06/2026 10:20', symbol: 'USD', amount: 2500 },
     { id: 2, date: '09/06/2026 10:25', symbol: 'EUR', amount: 500 },
     { id: 3, date: '09/06/2026 10:30', symbol: 'BTC', amount: 0.05 },
+    { id: 4, date: '08/06/2026 14:15', symbol: 'ETH', amount: 1.2 },
+    { id: 5, date: '08/06/2026 09:10', symbol: 'SOL', amount: 15 },
+    { id: 6, date: '07/06/2026 16:45', symbol: 'GBP', amount: 350 },
+    { id: 7, date: '07/06/2026 11:20', symbol: 'USD', amount: 1000 },
+    { id: 8, date: '06/06/2026 18:30', symbol: 'EUR', amount: 750 },
+    { id: 9, date: '06/06/2026 10:05', symbol: 'BTC', amount: 0.015 },
+    { id: 10, date: '05/06/2026 15:50', symbol: 'ARS', amount: 50000 },
+    { id: 11, date: '05/06/2026 09:30', symbol: 'USD', amount: 1500 },
+    { id: 12, date: '04/06/2026 12:40', symbol: 'SOL', amount: 8 }
   ])
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 5
+
+  const totalLogs = depositLogs.length
+  const totalPages = Math.max(1, Math.ceil(totalLogs / pageSize))
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return depositLogs.slice(start, start + pageSize)
+  }, [depositLogs, currentPage])
 
   const assetDetails = useMemo(() => {
     let total = 0
@@ -54,6 +72,7 @@ export default function DashboardPanel() {
       ...prev,
     ])
     setDepAmount('')
+    setCurrentPage(1)
   }
 
   const handleDocumentUpload = async (event) => {
@@ -74,6 +93,71 @@ export default function DashboardPanel() {
       setIsUploading(false)
       event.target.value = ''
     }
+  }
+
+  if (viewMode === 'history') {
+    return (
+      <div className="dashboard-card">
+        <div className="dashboard-header">
+          <div>
+            <div className="section-kicker">Auditoría Transaccional</div>
+            <h2 className="trade-title">Historial de Capital</h2>
+            <p className="small">Sesión activa para {user?.email || user?.name}</p>
+          </div>
+          <div className="badge">Registros de Fondos</div>
+        </div>
+        <div className="dashboard-sub-panel" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+          <div className="log-table-container">
+            <table className="log-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Moneda</th>
+                  <th>Monto</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{log.date}</td>
+                    <td>{log.symbol}</td>
+                    <td>+{log.amount.toLocaleString(undefined, { minimumFractionDigits: log.amount < 1 ? 4 : 2 })}</td>
+                    <td style={{ color: 'var(--accent-success)', fontWeight: 'bold' }}>Completado</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', gap: '12px' }}>
+            <div className="small">
+              Mostrando {Math.min(totalLogs, (currentPage - 1) * pageSize + 1)} - {Math.min(totalLogs, currentPage * pageSize)} de {totalLogs}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '6px 12px', minHeight: '32px' }}
+                onClick={() => setCurrentPage((val) => Math.max(1, val - 1))}
+                disabled={currentPage <= 1}
+              >
+                Anterior
+              </button>
+              <span className="small" style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '6px 12px', minHeight: '32px' }}
+                onClick={() => setCurrentPage((val) => Math.min(totalPages, val + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -172,16 +256,43 @@ export default function DashboardPanel() {
                 </tr>
               </thead>
               <tbody>
-                {depositLogs.map((log) => (
+                {paginatedLogs.map((log) => (
                   <tr key={log.id}>
                     <td>{log.date}</td>
                     <td>{log.symbol}</td>
                     <td>+{log.amount.toLocaleString(undefined, { minimumFractionDigits: log.amount < 1 ? 4 : 2 })}</td>
-                    <td>Completado</td>
+                    <td style={{ color: 'var(--accent-success)', fontWeight: 'bold' }}>Completado</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', gap: '12px' }}>
+            <div className="small">
+              Mostrando {Math.min(totalLogs, (currentPage - 1) * pageSize + 1)} - {Math.min(totalLogs, currentPage * pageSize)} de {totalLogs}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '6px 12px', minHeight: '32px' }}
+                onClick={() => setCurrentPage((val) => Math.max(1, val - 1))}
+                disabled={currentPage <= 1}
+              >
+                Anterior
+              </button>
+              <span className="small" style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '6px 12px', minHeight: '32px' }}
+                onClick={() => setCurrentPage((val) => Math.min(totalPages, val + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         </div>
 
