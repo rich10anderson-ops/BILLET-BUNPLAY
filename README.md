@@ -1,4 +1,4 @@
-# NEXOPAY
+# BILLET-BUNPLAY
 
 Frontend React + Vite para NEXOPAY, con dashboard autenticado, login con Google, simulador de mercados, subida de documentos por S3 presigned URL y envio de email por AWS SES.
 
