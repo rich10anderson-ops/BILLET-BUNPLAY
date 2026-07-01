@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum TransactionType {
+  BUY
+  SELL
+  SWAP
+  TRANSFER
+  SHARED_EXPENSE
+  SAVINGS_DEPOSIT
+  SAVINGS_WITHDRAWAL
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum SharedExpenseStatus {
+  OPEN
+  SETTLED
+  CANCELLED
+}
+
+enum ParticipantStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum SavingsGoalStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum FavoriteType {
+  CONTACT
+  TRANSACTION_TEMPLATE
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  wallet                    Wallet?
+  createdSharedExpenses     SharedExpense[]             @relation("CreatorUser")
+  sharedExpenseParticipants SharedExpenseParticipant[]
+  favorites                 Favorite[]
+  refreshTokens             RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balances     Balance[]
+  transactions Transaction[]
+  savingsGoals SavingsGoal[]
+
+  @@map("wallets")
+}
+
+model Balance {
+  id           String   @id @default(uuid())
+  walletId     String   @map("wallet_id")
+  currencyCode String   @map("currency_code") @db.VarChar(3)
+  amount       Decimal  @default(0) @db.Decimal(18, 6)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, currencyCode])
+  @@map("balances")
+}
+
+model Transaction {
+  id           String            @id @default(uuid())
+  walletId     String            @map("wallet_id")
+  type         TransactionType
+  currencyFrom String            @map("currency_from") @db.VarChar(3)
+  currencyTo   String            @map("currency_to") @db.VarChar(3)
+  amountFrom   Decimal           @map("amount_from") @db.Decimal(18, 6)
+  amountTo     Decimal           @map("amount_to") @db.Decimal(18, 6)
+  exchangeRate Decimal           @map("exchange_rate") @db.Decimal(18, 6)
+  status       TransactionStatus @default(PENDING)
+  description  String?           @db.Text
+  metadata     Json?
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("transactions")
+}
+
+model SharedExpense {
+  id              String              @id @default(uuid())
+  creatorUserId   String              @map("creator_user_id")
+  title           String
+  totalAmount     Decimal             @map("total_amount") @db.Decimal(18, 6)
+  currencyCode    String              @map("currency_code") @db.VarChar(3)
+  status          SharedExpenseStatus @default(OPEN)
+  description     String?             @db.Text
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  creator      User                       @relation("CreatorUser", fields: [creatorUserId], references: [id])
+  participants SharedExpenseParticipant[]
+
+  @@map("shared_expenses")
+}
+
+model SharedExpenseParticipant {
+  id              String            @id @default(uuid())
+  sharedExpenseId String            @map("shared_expense_id")
+  userId          String            @map("user_id")
+  shareAmount     Decimal           @map("share_amount") @db.Decimal(18, 6)
+  status          ParticipantStatus @default(PENDING)
+  paidAt          DateTime?         @map("paid_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  sharedExpense SharedExpense @relation(fields: [sharedExpenseId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@unique([sharedExpenseId, userId])
+  @@map("shared_expense_participants")
+}
+
+model SavingsGoal {
+  id            String            @id @default(uuid())
+  walletId      String            @map("wallet_id")
+  title         String
+  targetAmount  Decimal           @map("target_amount") @db.Decimal(18, 6)
+  currentAmount Decimal           @default(0) @map("current_amount") @db.Decimal(18, 6)
+  currencyCode  String            @map("currency_code") @db.VarChar(3)
+  targetDate    DateTime?         @map("target_date")
+  status        SavingsGoalStatus @default(ACTIVE)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@map("savings_goals")
+}
+
+model Favorite {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  name      String
+  type      FavoriteType
+  payload   Json
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("favorites")
+}
